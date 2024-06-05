@@ -3,141 +3,137 @@ import machine_learning as ml
 import feature_extraction as fe
 from bs4 import BeautifulSoup
 import requests as re
-import matplotlib.pyplot as plt
 
-# col1, col2 = st.columns([1, 3])
+# Utilizar el modelo RandomForest por defecto
+model = ml.rf_model
 
-st.title('Phishing Website Detection using Machine Learning')
-st.write('This ML-based app is developed for educational purposes. Objective of the app is detecting phishing websites only using content data. Not URL!'
-         ' You can see the details of approach, data set, and feature set if you click on _"See The Details"_. ')
+# Estilo CSS
+st.markdown(
+    """
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ADD8E6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1,
+        h2 {
+            color: #333333;
+        }
+        .image-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        img {
+            max-width: 30%;
+            height: auto;
+        }
+        .about {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #ADD8E6;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .about-text {
+            text-align: left;
+        }
+        .prediction {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #ADD8E6;
+            border-radius: 5px;
+        }
+        input,
+        button {
+            padding: 5px;
+            font-size: 16px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+# Contenido HTML
+st.markdown(
+    """
+    <div class="container">
+        <h1>Pescando a los Phishers</h1>
+        <div class="image-container">
+            <img src="https://its.unc.edu/wp-content/uploads/sites/337/2023/10/phishing-illustration-e1696514608667.png" alt="Imagen de Phishing">
+        </div>
+        <div class="about">
+            <h2>Acerca de:</h2>
+            <p class="about-text">El phishing es una forma de ciberdelito en la que un atacante se pone en contacto con
+                un objetivo a través de correo electrónico, teléfono o mensaje de texto, haciéndose pasar por una
+                entidad o persona confiable. El atacante luego atrae a las personas a sitios web falsos para engañar a
+                los destinatarios y obtener datos confidenciales. El propósito de esta aplicación es ayudar a
+                identificar estas URLs de phishing para fomentar prácticas más seguras en línea.</p>
+        </div>
+        <div class="prediction">
+            <h2>Predicción:</h2>
+            <p>¿La URL es legítima o phishing?</p>
+            <input type="text" placeholder="Ingrese la URL aquí" id="url_input">
+            <button onclick="makePrediction()">Hacer Predicción</button>
+            <p id="prediction_result"></p>
+        </div>
+    </div>
+    <script>
+        function makePrediction() {
+            var url = document.getElementById('url_input').value;
+            fetch("/predict?url=" + url)
+            .then(response => response.json())
+            .then(data => {
+                var result = document.getElementById('prediction_result');
+                if (data.prediction === 0) {
+                    result.innerHTML = "Esta página web parece legítima.";
+                } else {
+                    result.innerHTML = "¡Atención! ¡Esta página web es un posible phishing!";
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
 
-with st.expander("PROJECT DETAILS"):
-    st.subheader('Approach')
-    st.write('I used _supervised learning_ to classify phishing and legitimate websites. '
-             'I benefit from content-based approach and focus on html of the websites. '
-             'Also, I used scikit-learn for the ML models.'
-             )
-    st.write('For this educational project, '
-             'I created my own data set and defined features, some from the literature and some based on manual analysis. '
-             'I used requests library to collect data, BeautifulSoup module to parse and extract features. ')
-    st.write('The source code and data sets are available in the below Github link:')
-    st.write('_https://github.com/emre-kocyigit/phishing-website-detection-content-based_')
-
-    st.subheader('Data set')
-    st.write('I used _"phishtank.org"_ & _"tranco-list.eu"_ as data sources.')
-    st.write('Totally 26584 websites ==> **_16060_ legitimate** websites | **_10524_ phishing** websites')
-    st.write('Data set was created in October 2022.')
-
-    # ----- FOR THE PIE CHART ----- #
-    labels = 'phishing', 'legitimate'
-    phishing_rate = int(ml.phishing_df.shape[0] / (ml.phishing_df.shape[0] + ml.legitimate_df.shape[0]) * 100)
-    legitimate_rate = 100 - phishing_rate
-    sizes = [phishing_rate, legitimate_rate]
-    explode = (0.1, 0)
-    fig, ax = plt.subplots()
-    ax.pie(sizes, explode=explode, labels=labels, shadow=True, startangle=90, autopct='%1.1f%%')
-    ax.axis('equal')
-    st.pyplot(fig)
-    # ----- !!!!! ----- #
-
-    st.write('Features + URL + Label ==> Dataframe')
-    st.markdown('label is 1 for phishing, 0 for legitimate')
-    number = st.slider("Select row number to display", 0, 100)
-    st.dataframe(ml.legitimate_df.head(number))
-
-
-    @st.cache
-    def convert_df(df):
-        # IMPORTANT: Cache the conversion to prevent computation on every rerun
-        return df.to_csv().encode('utf-8')
-
-    csv = convert_df(ml.df)
-
-    st.download_button(
-        label="Download data as CSV",
-        data=csv,
-        file_name='phishing_legitimate_structured_data.csv',
-        mime='text/csv',
-    )
-
-    st.subheader('Features')
-    st.write('I used only content-based features. I didn\'t use url-based faetures like length of url etc.'
-             'Most of the features extracted using find_all() method of BeautifulSoup module after parsing html.')
-
-    st.subheader('Results')
-    st.write('I used 7 different ML classifiers of scikit-learn and tested them implementing k-fold cross validation.'
-             'Firstly obtained their confusion matrices, then calculated their accuracy, precision and recall scores.'
-             'Comparison table is below:')
-    st.table(ml.df_results)
-    st.write('NB --> Gaussian Naive Bayes')
-    st.write('SVM --> Support Vector Machine')
-    st.write('DT --> Decision Tree')
-    st.write('RF --> Random Forest')
-    st.write('AB --> AdaBoost')
-    st.write('NN --> Neural Network')
-    st.write('KN --> K-Neighbours')
-
-with st.expander('EXAMPLE PHISHING URLs:'):
-    st.write('_https://rtyu38.godaddysites.com/_')
-    st.write('_https://karafuru.invite-mint.com/_')
-    st.write('_https://defi-ned.top/h5/#/_')
-    st.caption('REMEMBER, PHISHING WEB PAGES HAVE SHORT LIFECYCLE! SO, THE EXAMPLES SHOULD BE UPDATED!')
-
-choice = st.selectbox("Please select your machine learning model",
-                 [
-                     'Gaussian Naive Bayes', 'Support Vector Machine', 'Decision Tree', 'Random Forest',
-                     'AdaBoost', 'Neural Network', 'K-Neighbours'
-                 ]
-                )
-
-model = ml.nb_model
-
-if choice == 'Gaussian Naive Bayes':
-    model = ml.nb_model
-    st.write('GNB model is selected!')
-elif choice == 'Support Vector Machine':
-    model = ml.svm_model
-    st.write('SVM model is selected!')
-elif choice == 'Decision Tree':
-    model = ml.dt_model
-    st.write('DT model is selected!')
-elif choice == 'Random Forest':
-    model = ml.rf_model
-    st.write('RF model is selected!')
-elif choice == 'AdaBoost':
-    model = ml.ab_model
-    st.write('AB model is selected!')
-elif choice == 'Neural Network':
-    model = ml.nn_model
-    st.write('NN model is selected!')
-else:
-    model = ml.kn_model
-    st.write('KN model is selected!')
-
-
-url = st.text_input('Enter the URL')
-# check the url is valid or not
-if st.button('Check!'):
+# Proceso de verificación de la URL (funcionalidad de predicción)
+@st.cache
+def predict_phishing(url):
     try:
         response = re.get(url, verify=False, timeout=4)
         if response.status_code != 200:
-            print(". HTTP connection was not successful for the URL: ", url)
+            return None
         else:
             soup = BeautifulSoup(response.content, "html.parser")
             vector = [fe.create_vector(soup)]  # it should be 2d array, so I added []
             result = model.predict(vector)
-            if result[0] == 0:
-                st.success("This web page seems a legitimate!")
-                st.balloons()
-            else:
-                st.warning("Attention! This web page is a potential PHISHING!")
-                st.snow()
-
+            return result[0]
     except re.exceptions.RequestException as e:
         print("--> ", e)
+        return None
 
-
-
-
-
+# Obtener la URL ingresada por el usuario y realizar la predicción
+url = st.text_input("Ingrese la URL aquí:")
+if st.button("Hacer Predicción"):
+    if url:
+        prediction = predict_phishing(url)
+        if prediction is not None:
+            if prediction == 0:
+                st.success("Esta página web parece legítima.")
+            else:
+                st.warning("¡Atención! ¡Esta página web es un posible phishing!")
+        else:
+            st.error("No se pudo verificar la URL. Por favor, asegúrese de que sea válida.")
